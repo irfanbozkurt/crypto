@@ -2,4 +2,6 @@
 
 RSA with CRT and corresponding precomputation
 
-> cargo run
+```bash
+$ cargo run
+```
