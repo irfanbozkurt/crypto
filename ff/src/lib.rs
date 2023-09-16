@@ -31,10 +31,7 @@ impl FieldElement {
 
         let res = (((self.num as u128) + (other.num as u128)) % self.prime as u128) as u64;
 
-        Ok(Self {
-            num: res,
-            prime: self.prime,
-        })
+        Ok(Self::new(res, self.prime)?)
     }
 
     pub fn sub(&self, other: &Self) -> Result<Self> {
@@ -43,10 +40,7 @@ impl FieldElement {
         let res = (((self.num as u128 + self.prime as u128) - other.num as u128)
             % self.prime as u128) as u64;
 
-        Ok(Self {
-            num: res,
-            prime: self.prime,
-        })
+        Ok(Self::new(res, self.prime)?)
     }
 
     pub fn mul(&self, other: &Self) -> Result<Self> {
@@ -54,14 +48,17 @@ impl FieldElement {
 
         let res = (((self.num as u128) * (other.num as u128)) % self.prime as u128) as u64;
 
-        Ok(Self {
-            num: res,
-            prime: self.prime,
-        })
+        Ok(Self::new(res, self.prime)?)
     }
 
     pub fn sq(&self) -> Result<Self> {
         self.mul(&self)
+    }
+
+    pub fn div(&self, other: &Self) -> Result<Self> {
+        let other_inv = other.inv()?;
+        let res = self.mul(&other_inv)?;
+        Ok(res)
     }
 
     // Square & add algorithm
@@ -84,13 +81,18 @@ impl FieldElement {
 
         while exp != 0 {
             if exp & 1 == 1 {
-                res = res.mul(&base).unwrap();
+                res = res.mul(&base)?;
             }
-            base = base.sq().unwrap();
+            base = base.sq()?;
             exp >>= 1;
         }
 
         return Ok(res);
+    }
+
+    // Uses Fermat's little
+    pub fn inv(&self) -> Result<Self> {
+        self.exp(&(&self.prime - 2))
     }
 
     fn prime_check(p_1: &u64, p_2: &u64) -> Result<()> {
@@ -113,13 +115,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn not_a_prime() {
+    fn new_err_not_a_prime() {
         let err = FieldElement::new(17, 21).unwrap_err();
         assert_eq!(err, Error::NotPrime);
     }
 
     #[test]
-    fn num_gte_prime() {
+    fn new_1() {
         let prime = 23;
         let num = 7871238;
         let a = FieldElement::new(num, prime).unwrap();
@@ -127,25 +129,28 @@ mod tests {
     }
 
     #[test]
-    fn two_field_elems_in_different_fields_are_not_equal() {
+    fn cmp_neq_1() {
         let a = FieldElement::new(17, 23).unwrap();
         let b = FieldElement::new(16, 23).unwrap();
         assert_ne!(a, b);
+    }
 
+    #[test]
+    fn cmp_neq_2() {
         let c = FieldElement::new(17, 23).unwrap();
         let d = FieldElement::new(17, 29).unwrap();
         assert_ne!(c, d);
     }
 
     #[test]
-    fn two_field_elems_are_equal() {
+    fn eq_1() {
         let a = FieldElement::new(17, 23).unwrap();
         let b = FieldElement::new(17, 23).unwrap();
         assert_eq!(a, b);
     }
 
     #[test]
-    fn cannot_add_different_fields() {
+    fn add_err_different_primes() {
         let a = FieldElement::new(17, 797).unwrap();
         let b = FieldElement::new(17, 859).unwrap();
 
@@ -154,26 +159,20 @@ mod tests {
     }
 
     #[test]
-    fn test_add() {
-        let shared_prime: u64 = 859;
+    fn add_1() {
+        let prime: u64 = 859;
         let num1: u64 = 17;
         let num2: u64 = 2222223; // 849 mod 859
 
-        let a = FieldElement::new(num1, shared_prime).unwrap();
-        let b = FieldElement::new(num2, shared_prime).unwrap();
+        let a = FieldElement::new(num1, prime).unwrap();
+        let b = FieldElement::new(num2, prime).unwrap();
 
         let res = a.add(&b).unwrap();
-        assert_eq!(
-            res,
-            FieldElement {
-                prime: shared_prime,
-                num: 7
-            }
-        );
+        assert_eq!(res, FieldElement { prime, num: 7 });
     }
 
     #[test]
-    fn cannot_subtract_different_fields() {
+    fn sub_err_different_primes() {
         let a = FieldElement::new(17, 797).unwrap();
         let b = FieldElement::new(17, 859).unwrap();
 
@@ -182,57 +181,57 @@ mod tests {
     }
 
     #[test]
-    fn test_subtract() {
-        let shared_prime: u64 = 859;
+    fn sub_1() {
+        let prime: u64 = 859;
         let num1: u64 = 17;
         let num2: u64 = 2222223; // 849 mod 859
 
-        let a = FieldElement::new(num1, shared_prime).unwrap();
-        let b = FieldElement::new(num2, shared_prime).unwrap();
+        let a = FieldElement::new(num1, prime).unwrap();
+        let b = FieldElement::new(num2, prime).unwrap();
 
         let res = a.sub(&b).unwrap();
-        assert_eq!(
-            res,
-            FieldElement {
-                prime: shared_prime,
-                num: 27
-            }
-        );
+        assert_eq!(res, FieldElement { prime, num: 27 });
     }
 
     #[test]
-    fn test_mul() {
-        let shared_prime: u64 = 859;
+    fn mul_1() {
+        let prime: u64 = 859;
         let num1: u64 = 17;
         let num2: u64 = 2222223; // 849 mod 859
 
         let expected_result: u64 = 689;
 
-        let a = FieldElement::new(num1, shared_prime).unwrap();
-        let b = FieldElement::new(num2, shared_prime).unwrap();
+        let a = FieldElement::new(num1, prime).unwrap();
+        let b = FieldElement::new(num2, prime).unwrap();
 
         let res = a.mul(&b).unwrap();
         assert_eq!(
             res,
             FieldElement {
-                prime: shared_prime,
+                prime,
                 num: expected_result
             }
         );
     }
 
     #[test]
-    fn test_exp() {
+    fn exp_1() {
         let prime = 97;
         let a = FieldElement::new(3, prime).unwrap();
         let res = a.exp(&4).unwrap();
         assert_eq!(res, FieldElement { prime, num: 81 });
+    }
 
+    #[test]
+    fn exp_2() {
         let prime = 97;
         let a = FieldElement::new(1, prime).unwrap();
         let res = a.exp(&326423784).unwrap();
         assert_eq!(res, FieldElement { prime, num: 1 });
+    }
 
+    #[test]
+    fn exp_3() {
         let prime = 18446744073709551557;
         let a = FieldElement::new(2, prime).unwrap();
         let res = a.exp(&35).unwrap();
@@ -243,5 +242,25 @@ mod tests {
                 num: 34359738368
             }
         );
+    }
+
+    #[test]
+    fn test_div_ez() {
+        let prime = 19;
+        let a = FieldElement::new(2, prime).unwrap();
+        let b = FieldElement::new(7, prime).unwrap();
+        let c = FieldElement::new(3, prime).unwrap();
+
+        assert_eq!(a.div(&b).unwrap(), c);
+    }
+
+    #[test]
+    fn test_div_hard() {
+        let prime = 19;
+        let a = FieldElement::new(2, prime).unwrap();
+        let b = FieldElement::new(7, prime).unwrap();
+        let c = FieldElement::new(3, prime).unwrap();
+
+        assert_eq!(a.div(&b).unwrap(), c);
     }
 }
