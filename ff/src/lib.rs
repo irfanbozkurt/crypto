@@ -12,61 +12,87 @@ pub struct FieldElement {
 }
 
 impl FieldElement {
+    const ZERO: u64 = 0;
+    const ONE: u64 = 1;
+
     pub fn new(num: u64, prime: u64) -> Result<Self> {
         let is_prime = utils::miller_rabin(BigUint::from(prime));
         if !is_prime {
             return Err(Error::NotPrime);
         }
 
-        let mut num = num;
-        if num >= prime {
-            num = ((num as u128) % (prime as u128)) as u64;
+        Ok(Self {
+            num: num % prime,
+            prime,
+        })
+    }
+
+    ///    [a]. a(modp) + b(modp)
+    ///    [b]. ( a(modp) + b(modp) )(modp)
+    ///
+    /// Result of [a]. can at most be 2p-2. If we pick a p value close to 2^64, this
+    /// will clearly cause an overflow, given that we're operating in u64.
+    ///
+    /// |______________|===|*********|________|
+    /// 0              p  u64       2p-2     u64
+    ///  
+    /// In that case, the result will be ******, and we'll need to add === to the
+    /// result to make up for the overflow.
+    pub fn add(&self, other: &Self) -> Result<Self> {
+        Self::is_same_field(&self.prime, &other.prime)?;
+
+        let (mut res, overflow) = self.num.overflowing_add(other.num);
+
+        if overflow {
+            res += u64::MAX - self.prime;
         }
 
-        Ok(Self { num, prime })
+        res %= self.prime;
+
+        Ok(Self {
+            num: res,
+            prime: self.prime,
+        })
     }
 
-    pub fn add(&self, other: &Self) -> Result<Self> {
-        Self::prime_check(&self.prime, &other.prime)?;
-
-        let res = (((self.num as u128) + (other.num as u128)) % self.prime as u128) as u64;
-
-        Ok(Self::new(res, self.prime)?)
+    pub fn double(&self) -> Result<Self> {
+        self.add(&self)
     }
 
+    pub fn add_inv(&self) -> Result<Self> {
+        Ok(Self {
+            num: self.prime - self.num,
+            prime: self.prime,
+        })
+    }
+
+    /// (a(modp))-(b(modp)) (modp)  ==>  amodp + (-b)modp = amodp + (p-b)modp
+    ///
+    /// (a + p - b) is subject to overflows, but our addition function is already
+    /// precautious against such situations
     pub fn sub(&self, other: &Self) -> Result<Self> {
-        Self::prime_check(&self.prime, &other.prime)?;
+        Self::is_same_field(&self.prime, &other.prime)?;
 
-        let res = (((self.num as u128 + self.prime as u128) - other.num as u128)
-            % self.prime as u128) as u64;
+        let res = self.add(&other.add_inv()?)?;
 
-        Ok(Self::new(res, self.prime)?)
-    }
-
-    pub fn mul(&self, other: &Self) -> Result<Self> {
-        Self::prime_check(&self.prime, &other.prime)?;
-
-        let res = (((self.num as u128) * (other.num as u128)) % self.prime as u128) as u64;
-
-        Ok(Self::new(res, self.prime)?)
-    }
-
-    pub fn sq(&self) -> Result<Self> {
-        self.mul(&self)
-    }
-
-    pub fn div(&self, other: &Self) -> Result<Self> {
-        let other_inv = other.inv()?;
-        let res = self.mul(&other_inv)?;
         Ok(res)
     }
 
-    // Square & add algorithm
-    pub fn exp(&self, exp: &u64) -> Result<Self> {
-        // Use fermat's little theorem
-        let mut exp = (*exp as u128 % (self.prime - 1) as u128) as u64;
+    /// Double & add algorithm
+    ///
+    /// Example: 5 * 45 = 5 * (101101)_2
+    /// Iterate all bits of 45 starting from the LSB, and hold 2 aggregators:
+    ///     base: this ticker will get doubled at each bit, unconditionally.
+    ///             `base` will start from "5"
+    ///     res:  we'll add `base` to this variable whenever the current bit is 1
+    ///             `res` will start from "0"
+    ///
+    /// res = 5 + 20 + 40 + 160 = 225
+    pub fn mul(&self, other: &Self) -> Result<Self> {
+        Self::is_same_field(&self.prime, &other.prime)?;
 
-        if exp == 0 {
+        let mut other = other.num;
+        if other == Self::ZERO {
             return Ok(Self {
                 num: 0,
                 prime: self.prime,
@@ -74,12 +100,56 @@ impl FieldElement {
         }
 
         let mut base = self.clone();
-        let mut res = FieldElement {
-            num: 1,
-            prime: self.prime.clone(),
+        let mut res = Self {
+            num: 0,
+            prime: self.prime,
         };
 
-        while exp != 0 {
+        while other != Self::ZERO {
+            if other & 1 == 1 {
+                res = res.add(&base)?;
+            }
+            base = base.double()?;
+            other >>= 1;
+        }
+
+        Ok(res)
+    }
+
+    pub fn sq(&self) -> Result<Self> {
+        self.mul(&self)
+    }
+
+    // Uses Fermat's little
+    pub fn mul_inv(&self) -> Result<Self> {
+        self.exp(&(&self.prime - 2))
+    }
+
+    pub fn div(&self, other: &Self) -> Result<Self> {
+        let other_inv = other.mul_inv()?;
+        let res = self.mul(&other_inv)?;
+        Ok(res)
+    }
+
+    // Square & add algorithm
+    pub fn exp(&self, exp: &u64) -> Result<Self> {
+        // Use fermat's little theorem
+        let mut exp = *exp % (self.prime - 1);
+
+        if exp == Self::ZERO {
+            return Ok(Self {
+                num: Self::ZERO,
+                prime: self.prime,
+            });
+        }
+
+        let mut base = self.clone();
+        let mut res = Self {
+            num: Self::ONE,
+            prime: self.prime,
+        };
+
+        while exp != Self::ZERO {
             if exp & 1 == 1 {
                 res = res.mul(&base)?;
             }
@@ -90,12 +160,7 @@ impl FieldElement {
         return Ok(res);
     }
 
-    // Uses Fermat's little
-    pub fn inv(&self) -> Result<Self> {
-        self.exp(&(&self.prime - 2))
-    }
-
-    fn prime_check(p_1: &u64, p_2: &u64) -> Result<()> {
+    fn is_same_field(p_1: &u64, p_2: &u64) -> Result<()> {
         if *p_1 != *p_2 {
             return Err(Error::DifferentFields);
         }
