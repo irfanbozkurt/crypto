@@ -51,6 +51,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a81dae078cea95a014a339291cec439d2f232ebe854a9d672b796c6afafa9b7"
 
 [[package]]
+name = "ec"
+version = "0.1.0"
+dependencies = [
+ "ff",
+ "primitive-types",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -63,6 +71,7 @@ dependencies = [
  "num-bigint-dig",
  "num-traits",
  "primitive-types",
+ "utils",
 ]
 
 [[package]]
@@ -325,6 +334,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rsa"
+version = "0.1.0"
+dependencies = [
+ "num-bigint-dig",
+ "num-integer",
+ "num-traits",
+ "rand",
+]
+
+[[package]]
 name = "rustc-hex"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -352,9 +371,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.11.0"
+version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62bb4feee49fdd9f707ef802e22365a35de4b7b299de4763d44bfea899442ff9"
+checksum = "942b4a808e05215192e39f4ab80813e599068285906cc91aa64f923db842bd5a"
 
 [[package]]
 name = "spin"
@@ -430,6 +449,13 @@ name = "unicode-ident"
 version = "1.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3354b9ac3fae1ff6755cb6db53683adb661634f67557942dea4facebec0fee4b"
+
+[[package]]
+name = "utils"
+version = "0.1.0"
+dependencies = [
+ "num-bigint-dig",
+]
 
 [[package]]
 name = "wasi"

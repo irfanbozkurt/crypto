@@ -1,6 +1,5 @@
-pub mod errors;
-
-pub use crate::errors::{Error, Result};
+mod errors;
+use crate::errors::{Error, Result};
 
 use num_bigint::{BigInt, BigUint, IntoBigInt, ModInverse, RandPrime, Sign::Plus};
 use num_integer::Integer;

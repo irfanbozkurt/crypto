@@ -7,4 +7,7 @@ edition = "2021"
 
 [dependencies]
 num-bigint = { version = "0.8.2", features = ["i128", "prime", "zeroize"], default-features = false, package = "num-bigint-dig" }
+num-traits = { version= "0.2.9", default-features = false, features = ["libm"] }
+primitive-types = "0.12.1"
+utils = {path = "../utils"}
 
