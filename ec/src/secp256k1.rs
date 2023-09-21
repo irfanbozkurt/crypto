@@ -35,6 +35,9 @@ impl Secp256k1 {
 impl Secp256k1 {
     pub fn add(p: &U256ECPoint, q: &U256ECPoint) -> U256ECPoint {
         if p.x == q.x {
+            if p.y == q.y {
+                return Self::double(p);
+            }
             return Self::identity();
         }
         if p.is_identity() {
@@ -44,9 +47,7 @@ impl Secp256k1 {
             return p.clone();
         }
 
-        let dx = p.x.sub(&q.x).expect("Field element subtraction failed");
-        let dy = p.y.sub(&q.y).expect("Field element subtraction failed");
-        let slope = dy.div(&dx).expect("Field element division failed");
+        let slope = Self::calc_slope_chord(p, q);
 
         Self::add_by_slope(&slope, p, q)
     }
@@ -57,20 +58,55 @@ impl Secp256k1 {
             return Self::identity();
         }
 
-        // s = ( 3 * x^2 + a) / 2 * y
-        // a is 0 in secp256k1, so it's just 3 * x^2  / 2 * y
-        let slope =
-            p.x.sq()
-                .unwrap()
-                .mul(&FieldElement::from_u64_and_u256_prime(3, p.x.prime).unwrap())
-                .unwrap()
-                .div(
-                    &p.y.mul(&FieldElement::from_u64_and_u256_prime(2, p.x.prime).unwrap())
-                        .unwrap(),
-                )
-                .unwrap();
+        let slope = Self::calc_slope_tang(p);
 
         Self::add_by_slope(&slope, p, p)
+    }
+
+    /// Double & add algorithm
+    pub fn exp(p: &U256ECPoint, exp: U256) -> U256ECPoint {
+        if p.x.prime != Self::p() {
+            panic!("Does not belong to this curve");
+        }
+
+        if exp.is_zero() {
+            return p.clone();
+        }
+
+        let mut exp = exp;
+        let mut base = p.clone();
+        let mut res = Self::identity();
+
+        while exp != U256::zero() {
+            if exp & U256::one() == U256::one() {
+                res = Secp256k1::add(&res, &base);
+            }
+            base = Secp256k1::double(&base);
+            exp >>= 1;
+        }
+
+        res
+    }
+
+    /// dy / dx
+    fn calc_slope_chord(p: &U256ECPoint, q: &U256ECPoint) -> FieldElement {
+        let dx = p.x.sub(&q.x).expect("Field element subtraction failed");
+        let dy = p.y.sub(&q.y).expect("Field element subtraction failed");
+        dy.div(&dx).expect("Field element division failed")
+    }
+
+    /// s = ( 3 * x^2 + a) / 2 * y
+    /// a is 0 in secp256k1, so it's just 3 * x^2  / 2 * y
+    fn calc_slope_tang(p: &U256ECPoint) -> FieldElement {
+        p.x.sq()
+            .unwrap()
+            .mul(&FieldElement::from_u64_and_u256_prime(3, p.x.prime).unwrap())
+            .unwrap()
+            .div(
+                &p.y.mul(&FieldElement::from_u64_and_u256_prime(2, p.x.prime).unwrap())
+                    .unwrap(),
+            )
+            .unwrap()
     }
 
     fn add_by_slope(slope: &FieldElement, p: &U256ECPoint, q: &U256ECPoint) -> U256ECPoint {
@@ -79,7 +115,7 @@ impl Secp256k1 {
         U256ECPoint { x: x3, y: y3 }
     }
 
-    // 𝑥𝑟=𝜆2−𝑥𝑝−𝑥𝑞
+    /// 𝑥𝑟=𝜆2−𝑥𝑝−𝑥𝑞
     fn calc_x_of_addition(
         slope: &FieldElement,
         x1: &FieldElement,
@@ -95,7 +131,7 @@ impl Secp256k1 {
             .clone()
     }
 
-    // 𝑦𝑟=𝜆(𝑥𝑝−𝑥𝑟)−𝑦𝑝
+    /// 𝑦𝑟=𝜆(𝑥𝑝−𝑥𝑟)−𝑦𝑝
     fn calc_y_of_addition(
         slope: &FieldElement,
         x3: &FieldElement,
@@ -174,5 +210,26 @@ mod tests {
         );
 
         assert_eq!(p_to_the_four, expected_result);
+    }
+
+    #[test]
+    fn exp_0() {
+        let prime = Secp256k1::p_str();
+
+        let p = U256ECPoint::from_str(
+            "79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798",
+            "483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8",
+            prime,
+        );
+
+        let p_square = Secp256k1::double(&p);
+        let p_to_the_four = Secp256k1::double(&p_square);
+        let p_to_the_eight = Secp256k1::double(&p_to_the_four);
+        let p_to_the_sixteen = Secp256k1::double(&p_to_the_eight);
+        let p_to_the_seventeen = Secp256k1::add(&p_to_the_sixteen, &p);
+
+        let p_exp_seventeen = Secp256k1::exp(&p, U256::from(17));
+
+        assert_eq!(p_to_the_seventeen, p_exp_seventeen);
     }
 }
