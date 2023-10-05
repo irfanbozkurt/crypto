@@ -58,7 +58,7 @@ impl U64FieldElement {
         self.add(&self)
     }
 
-    pub fn add_inv(&self) -> Result<Self> {
+    pub fn neg(&self) -> Result<Self> {
         Ok(Self {
             num: self.prime - self.num,
             prime: self.prime,
@@ -72,7 +72,7 @@ impl U64FieldElement {
     pub fn sub(&self, other: &Self) -> Result<Self> {
         Self::is_same_field(&self.prime, &other.prime)?;
 
-        let res = self.add(&other.add_inv()?)?;
+        let res = self.add(&other.neg()?)?;
 
         Ok(res)
     }

@@ -4,5 +4,6 @@ members = [
     "ff", 
 	"rsa", 
 	"ec",
-	"utils"
+	"utils",
+	"polynomial"
 ]

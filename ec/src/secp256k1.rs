@@ -90,23 +90,17 @@ impl Secp256k1 {
 
     /// dy / dx
     fn calc_slope_chord(p: &U256ECPoint, q: &U256ECPoint) -> U256FieldElement {
-        let dx = p.x.sub(&q.x).expect("Field element subtraction failed");
-        let dy = p.y.sub(&q.y).expect("Field element subtraction failed");
-        dy.div(&dx).expect("Field element division failed")
+        let dx = &p.x - &q.x;
+        let dy = &p.y - &q.y;
+        dy / dx
     }
 
     /// s = ( 3 * x^2 + a) / 2 * y
     /// a is 0 in secp256k1, so it's just 3 * x^2  / 2 * y
     fn calc_slope_tang(p: &U256ECPoint) -> U256FieldElement {
-        p.x.sq()
-            .unwrap()
-            .mul(&U256FieldElement::from_u64_and_u256_prime(3, p.x.prime).unwrap())
-            .unwrap()
-            .div(
-                &p.y.mul(&U256FieldElement::from_u64_and_u256_prime(2, p.x.prime).unwrap())
-                    .unwrap(),
-            )
-            .unwrap()
+        let numerator = p.x.sq() * &U256FieldElement::from_u64_and_u256_prime(3, p.x.prime).unwrap();
+        let denominator = &(&p.y * &U256FieldElement::from_u64_and_u256_prime(2, p.x.prime).unwrap());
+        numerator / denominator
     }
 
     fn add_by_slope(slope: &U256FieldElement, p: &U256ECPoint, q: &U256ECPoint) -> U256ECPoint {
@@ -121,14 +115,7 @@ impl Secp256k1 {
         x1: &U256FieldElement,
         x2: &U256FieldElement,
     ) -> U256FieldElement {
-        slope
-            .sq()
-            .expect("Squaring the slope failed")
-            .sub(x1)
-            .expect("Subtracting Px from the slope failed")
-            .sub(x2)
-            .expect("Subtracting Qx from the slope failed")
-            .clone()
+        slope.sq() - x1 - x2
     }
 
     /// 𝑦𝑟=𝜆(𝑥𝑝−𝑥𝑟)−𝑦𝑝
@@ -138,12 +125,7 @@ impl Secp256k1 {
         x1: &U256FieldElement,
         y1: &U256FieldElement,
     ) -> U256FieldElement {
-        x1.sub(x3)
-            .expect("Subtracting x3 from Px failed")
-            .mul(slope)
-            .expect("Multiplying by slope while finding y3 failed")
-            .sub(y1)
-            .expect("Subtracting Py while finding y3 failed")
+        (x1 - x3) * slope - y1
     }
 }
 
