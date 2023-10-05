@@ -1,5 +1,5 @@
 use crate::U256ECPoint;
-use ff::p_u256::FieldElement;
+use ff::p_u256::U256FieldElement;
 use primitive_types::U256;
 use std::str::FromStr;
 
@@ -89,7 +89,7 @@ impl Secp256k1 {
     }
 
     /// dy / dx
-    fn calc_slope_chord(p: &U256ECPoint, q: &U256ECPoint) -> FieldElement {
+    fn calc_slope_chord(p: &U256ECPoint, q: &U256ECPoint) -> U256FieldElement {
         let dx = p.x.sub(&q.x).expect("Field element subtraction failed");
         let dy = p.y.sub(&q.y).expect("Field element subtraction failed");
         dy.div(&dx).expect("Field element division failed")
@@ -97,19 +97,19 @@ impl Secp256k1 {
 
     /// s = ( 3 * x^2 + a) / 2 * y
     /// a is 0 in secp256k1, so it's just 3 * x^2  / 2 * y
-    fn calc_slope_tang(p: &U256ECPoint) -> FieldElement {
+    fn calc_slope_tang(p: &U256ECPoint) -> U256FieldElement {
         p.x.sq()
             .unwrap()
-            .mul(&FieldElement::from_u64_and_u256_prime(3, p.x.prime).unwrap())
+            .mul(&U256FieldElement::from_u64_and_u256_prime(3, p.x.prime).unwrap())
             .unwrap()
             .div(
-                &p.y.mul(&FieldElement::from_u64_and_u256_prime(2, p.x.prime).unwrap())
+                &p.y.mul(&U256FieldElement::from_u64_and_u256_prime(2, p.x.prime).unwrap())
                     .unwrap(),
             )
             .unwrap()
     }
 
-    fn add_by_slope(slope: &FieldElement, p: &U256ECPoint, q: &U256ECPoint) -> U256ECPoint {
+    fn add_by_slope(slope: &U256FieldElement, p: &U256ECPoint, q: &U256ECPoint) -> U256ECPoint {
         let x3 = Self::calc_x_of_addition(&slope, &p.x, &q.x);
         let y3 = Self::calc_y_of_addition(&slope, &x3, &p.x, &p.y);
         U256ECPoint { x: x3, y: y3 }
@@ -117,10 +117,10 @@ impl Secp256k1 {
 
     /// 𝑥𝑟=𝜆2−𝑥𝑝−𝑥𝑞
     fn calc_x_of_addition(
-        slope: &FieldElement,
-        x1: &FieldElement,
-        x2: &FieldElement,
-    ) -> FieldElement {
+        slope: &U256FieldElement,
+        x1: &U256FieldElement,
+        x2: &U256FieldElement,
+    ) -> U256FieldElement {
         slope
             .sq()
             .expect("Squaring the slope failed")
@@ -133,11 +133,11 @@ impl Secp256k1 {
 
     /// 𝑦𝑟=𝜆(𝑥𝑝−𝑥𝑟)−𝑦𝑝
     fn calc_y_of_addition(
-        slope: &FieldElement,
-        x3: &FieldElement,
-        x1: &FieldElement,
-        y1: &FieldElement,
-    ) -> FieldElement {
+        slope: &U256FieldElement,
+        x3: &U256FieldElement,
+        x1: &U256FieldElement,
+        y1: &U256FieldElement,
+    ) -> U256FieldElement {
         x1.sub(x3)
             .expect("Subtracting x3 from Px failed")
             .mul(slope)

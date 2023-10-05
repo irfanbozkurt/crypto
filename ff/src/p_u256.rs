@@ -8,12 +8,21 @@ use crate::errors::{Error, Result};
 use utils::primality_test;
 
 #[derive(Debug, Clone)]
-pub struct FieldElement {
+pub struct U256FieldElement {
     pub num: U256,
     pub prime: U256,
 }
 
-impl FieldElement {
+impl U256FieldElement {
+
+    pub fn zero(prime: U256) -> Self {
+        Self { num: U256::zero(), prime }
+    }
+
+    pub fn one(prime: U256) -> Self {
+        Self { num: U256::one(), prime }
+    }
+
     pub fn from_u64(num: u64, prime: u64) -> Result<Self> {
         Self::new(U256::from(num), U256::from(prime))
     }
@@ -177,8 +186,8 @@ impl FieldElement {
     }
 }
 
-impl Eq for FieldElement {}
-impl PartialEq for FieldElement {
+impl Eq for U256FieldElement {}
+impl PartialEq for U256FieldElement {
     fn eq(&self, other: &Self) -> bool {
         self.num == other.num && self.prime == other.prime
     }
@@ -190,7 +199,7 @@ mod tests {
 
     #[test]
     fn new_err_not_a_prime() {
-        let err = FieldElement::from_u64(17, 21).unwrap_err();
+        let err = U256FieldElement::from_u64(17, 21).unwrap_err();
         assert_eq!(err, Error::NotPrime);
     }
 
@@ -198,10 +207,10 @@ mod tests {
     fn new_1() {
         let prime = U256::from(23);
         let num = U256::from(7871238);
-        let a = FieldElement::new(num, prime).unwrap();
+        let a = U256FieldElement::new(num, prime).unwrap();
         assert_eq!(
             a,
-            FieldElement {
+            U256FieldElement {
                 num: U256::from(17),
                 prime
             }
@@ -210,22 +219,22 @@ mod tests {
 
     #[test]
     fn cmp_neq_1() {
-        let a = FieldElement::from_u64(17, 23).unwrap();
-        let b = FieldElement::from_u64(16, 23).unwrap();
+        let a = U256FieldElement::from_u64(17, 23).unwrap();
+        let b = U256FieldElement::from_u64(16, 23).unwrap();
         assert_ne!(a, b);
     }
 
     #[test]
     fn cmp_neq_2() {
-        let c = FieldElement::from_u64(17, 23).unwrap();
-        let d = FieldElement::from_u64(17, 29).unwrap();
+        let c = U256FieldElement::from_u64(17, 23).unwrap();
+        let d = U256FieldElement::from_u64(17, 29).unwrap();
         assert_ne!(c, d);
     }
 
     #[test]
     fn eq_1() {
-        let a = FieldElement::from_u64(17, 23).unwrap();
-        let b = FieldElement::from_u64(17, 23).unwrap();
+        let a = U256FieldElement::from_u64(17, 23).unwrap();
+        let b = U256FieldElement::from_u64(17, 23).unwrap();
         assert_eq!(a, b);
     }
 
@@ -233,14 +242,14 @@ mod tests {
     fn add_0() {
         let p = "0xB";
 
-        let a = FieldElement::from_str("0xBD", &p).unwrap();
-        let b = FieldElement::from_str("0x2B", &p).unwrap();
+        let a = U256FieldElement::from_str("0xBD", &p).unwrap();
+        let b = U256FieldElement::from_str("0x2B", &p).unwrap();
 
         let r = a.add(&b).unwrap();
 
         assert_eq!(
             r,
-            FieldElement::from_str(
+            U256FieldElement::from_str(
                 "0000000000000000000000000000000000000000000000000000000000000001",
                 &p
             )
@@ -252,14 +261,14 @@ mod tests {
     fn add_1() {
         let p = "0xf9cd";
 
-        let a = FieldElement::from_str("0xa167f055ff75c", &p).unwrap();
-        let b = FieldElement::from_str("0xacc457752e4ed", &p).unwrap();
+        let a = U256FieldElement::from_str("0xa167f055ff75c", &p).unwrap();
+        let b = U256FieldElement::from_str("0xacc457752e4ed", &p).unwrap();
 
         let r = a.add(&b).unwrap();
 
         assert_eq!(
             r,
-            FieldElement::from_str(
+            U256FieldElement::from_str(
                 "0000000000000000000000000000000000000000000000000000000000006bb0",
                 &p
             )
@@ -271,12 +280,12 @@ mod tests {
     fn add_2() {
         let p = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F";
 
-        let a = FieldElement::from_str(
+        let a = U256FieldElement::from_str(
             "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2E",
             &p,
         )
         .unwrap();
-        let b = FieldElement::from_str(
+        let b = U256FieldElement::from_str(
             "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2E",
             &p,
         )
@@ -286,7 +295,7 @@ mod tests {
 
         assert_eq!(
             r,
-            FieldElement::from_str(
+            U256FieldElement::from_str(
                 "fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2d",
                 &p
             )
@@ -296,8 +305,8 @@ mod tests {
 
     #[test]
     fn add_3() {
-        let a = FieldElement::from_u64(17, 797).unwrap();
-        let b = FieldElement::from_u64(17, 859).unwrap();
+        let a = U256FieldElement::from_u64(17, 797).unwrap();
+        let b = U256FieldElement::from_u64(17, 859).unwrap();
 
         let err = a.add(&b).unwrap_err();
         assert_eq!(err, Error::DifferentFields);
@@ -309,13 +318,13 @@ mod tests {
         let num1: U256 = U256::from(17);
         let num2: U256 = U256::from(2222223); // 849 mod 859
 
-        let a = FieldElement::new(num1, prime).unwrap();
-        let b = FieldElement::new(num2, prime).unwrap();
+        let a = U256FieldElement::new(num1, prime).unwrap();
+        let b = U256FieldElement::new(num2, prime).unwrap();
 
         let res = a.add(&b).unwrap();
         assert_eq!(
             res,
-            FieldElement {
+            U256FieldElement {
                 prime,
                 num: U256::from(7)
             }
@@ -324,8 +333,8 @@ mod tests {
 
     #[test]
     fn sub_err_different_primes() {
-        let a = FieldElement::from_u64(17, 797).unwrap();
-        let b = FieldElement::from_u64(17, 859).unwrap();
+        let a = U256FieldElement::from_u64(17, 797).unwrap();
+        let b = U256FieldElement::from_u64(17, 859).unwrap();
 
         let err = a.add(&b).unwrap_err();
         assert_eq!(err, Error::DifferentFields);
@@ -337,13 +346,13 @@ mod tests {
         let num1: U256 = U256::from(17);
         let num2: U256 = U256::from(2222223); // 849 mod 859
 
-        let a = FieldElement::new(num1, prime).unwrap();
-        let b = FieldElement::new(num2, prime).unwrap();
+        let a = U256FieldElement::new(num1, prime).unwrap();
+        let b = U256FieldElement::new(num2, prime).unwrap();
 
         let res = a.sub(&b).unwrap();
         assert_eq!(
             res,
-            FieldElement {
+            U256FieldElement {
                 prime,
                 num: U256::from(27)
             }
@@ -358,13 +367,13 @@ mod tests {
 
         let expected_result: U256 = U256::from(689);
 
-        let a = FieldElement::new(num1, prime).unwrap();
-        let b = FieldElement::new(num2, prime).unwrap();
+        let a = U256FieldElement::new(num1, prime).unwrap();
+        let b = U256FieldElement::new(num2, prime).unwrap();
 
         let res = a.mul(&b).unwrap();
         assert_eq!(
             res,
-            FieldElement {
+            U256FieldElement {
                 prime,
                 num: expected_result
             }
@@ -374,11 +383,11 @@ mod tests {
     #[test]
     fn exp_1() {
         let prime = U256::from(97);
-        let a = FieldElement::new(U256::from(3), prime).unwrap();
+        let a = U256FieldElement::new(U256::from(3), prime).unwrap();
         let res = a.exp(&U256::from(4)).unwrap();
         assert_eq!(
             res,
-            FieldElement {
+            U256FieldElement {
                 prime,
                 num: U256::from(81)
             }
@@ -388,11 +397,11 @@ mod tests {
     #[test]
     fn exp_2() {
         let prime = U256::from(97);
-        let a = FieldElement::new(U256::one(), prime).unwrap();
+        let a = U256FieldElement::new(U256::one(), prime).unwrap();
         let res = a.exp(&U256::from(326423784)).unwrap();
         assert_eq!(
             res,
-            FieldElement {
+            U256FieldElement {
                 prime,
                 num: U256::one()
             }
@@ -402,11 +411,11 @@ mod tests {
     #[test]
     fn exp_3() {
         let prime = U256::from_str("0xFFFFFFFFFFFFFFC5").unwrap();
-        let a = FieldElement::new(U256::from(2), prime).unwrap();
+        let a = U256FieldElement::new(U256::from(2), prime).unwrap();
         let res = a.exp(&U256::from(35)).unwrap();
         assert_eq!(
             res,
-            FieldElement {
+            U256FieldElement {
                 prime,
                 num: U256::from_str("0x800000000").unwrap()
             }
@@ -416,9 +425,9 @@ mod tests {
     #[test]
     fn test_div_ez() {
         let prime = 19;
-        let a = FieldElement::from_u64(2, prime).unwrap();
-        let b = FieldElement::from_u64(7, prime).unwrap();
-        let c = FieldElement::from_u64(3, prime).unwrap();
+        let a = U256FieldElement::from_u64(2, prime).unwrap();
+        let b = U256FieldElement::from_u64(7, prime).unwrap();
+        let c = U256FieldElement::from_u64(3, prime).unwrap();
 
         assert_eq!(a.div(&b).unwrap(), c);
     }
@@ -426,9 +435,9 @@ mod tests {
     #[test]
     fn test_div_hard() {
         let prime = 19;
-        let a = FieldElement::from_u64(2, prime).unwrap();
-        let b = FieldElement::from_u64(7, prime).unwrap();
-        let c = FieldElement::from_u64(3, prime).unwrap();
+        let a = U256FieldElement::from_u64(2, prime).unwrap();
+        let b = U256FieldElement::from_u64(7, prime).unwrap();
+        let c = U256FieldElement::from_u64(3, prime).unwrap();
 
         assert_eq!(a.div(&b).unwrap(), c);
     }
